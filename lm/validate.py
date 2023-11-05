@@ -126,33 +126,33 @@ def ind_where(array: np.ndarray, target, return_first_match=True, default_value=
 
 
 def main(_):
-    tf.logging.set_verbosity(tf.logging.INFO)
+    tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.INFO)
 
     news_config = GroverConfig.from_json_file(FLAGS.config_file)
 
-    tf.gfile.MakeDirs(FLAGS.output_dir)
+    tf.io.gfile.makedirs(FLAGS.output_dir)
 
     input_files = []
     for input_pattern in FLAGS.input_file.split(","):
-        input_files.extend(tf.gfile.Glob(input_pattern))
+        input_files.extend(tf.io.gfile.glob(input_pattern))
 
-    tf.logging.info("*** Input Files ***")
+    tf.compat.v1.logging.info("*** Input Files ***")
     for input_file in input_files:
-        tf.logging.info("  %s" % input_file)
+        tf.compat.v1.logging.info("  %s" % input_file)
 
     tpu_cluster_resolver = None
     if FLAGS.use_tpu and FLAGS.tpu_name:
-        tpu_cluster_resolver = tf.contrib.cluster_resolver.TPUClusterResolver(
+        tpu_cluster_resolver = tf.distribute.cluster_resolver.TPUClusterResolver(
             FLAGS.tpu_name, zone=FLAGS.tpu_zone, project=FLAGS.gcp_project)
 
-    is_per_host = tf.contrib.tpu.InputPipelineConfig.PER_HOST_V2
-    run_config = tf.contrib.tpu.RunConfig(
+    is_per_host = tf.compat.v1.estimator.tpu.InputPipelineConfig.PER_HOST_V2
+    run_config = tf.compat.v1.estimator.tpu.RunConfig(
         cluster=tpu_cluster_resolver,
         master=FLAGS.master,
         model_dir=FLAGS.output_dir,
         save_checkpoints_steps=FLAGS.iterations_per_loop,
         keep_checkpoint_max=None,
-        tpu_config=tf.contrib.tpu.TPUConfig(
+        tpu_config=tf.compat.v1.estimator.tpu.TPUConfig(
             iterations_per_loop=FLAGS.iterations_per_loop,
             num_shards=FLAGS.num_tpu_cores,
             per_host_input_for_training=is_per_host))
@@ -167,7 +167,7 @@ def main(_):
 
     # If TPU is not available, this will fall back to normal Estimator on CPU
     # or GPU.
-    estimator = tf.contrib.tpu.TPUEstimator(
+    estimator = tf.compat.v1.estimator.tpu.TPUEstimator(
         use_tpu=FLAGS.use_tpu,
         model_fn=model_fn,
         config=run_config,
@@ -211,4 +211,4 @@ def main(_):
 if __name__ == "__main__":
     flags.mark_flag_as_required("input_file")
     flags.mark_flag_as_required("output_dir")
-    tf.app.run()
+    tf.compat.v1.app.run()

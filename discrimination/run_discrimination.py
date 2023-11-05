@@ -137,25 +137,25 @@ def main(_):
     LABEL_LIST = ['machine', 'human']
     LABEL_INV_MAP = {label: i for i, label in enumerate(LABEL_LIST)}
 
-    tf.logging.set_verbosity(tf.logging.INFO)
+    tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.INFO)
 
     # These lines of code are just to check if we've already saved something into the directory
-    if tf.gfile.Exists(FLAGS.output_dir):
+    if tf.io.gfile.exists(FLAGS.output_dir):
         print(f"The output directory {FLAGS.output_dir} exists!")
         if FLAGS.do_train:
             print("EXITING BECAUSE DO_TRAIN is true", flush=True)
             return
         for split in ['val', 'test']:
-            if tf.gfile.Exists(os.path.join(FLAGS.output_dir, f'{split}-probs.npy')) and getattr(FLAGS,
+            if tf.io.gfile.exists(os.path.join(FLAGS.output_dir, f'{split}-probs.npy')) and getattr(FLAGS,
                                                                                                  f'predict_{split}'):
                 print(f"EXITING BECAUSE {split}-probs.npy exists", flush=True)
                 return
         # Double check to see if it has trained!
-        if not tf.gfile.Exists(os.path.join(FLAGS.output_dir, 'checkpoint')):
+        if not tf.io.gfile.exists(os.path.join(FLAGS.output_dir, 'checkpoint')):
             print("EXITING BECAUSE NO CHECKPOINT.", flush=True)
             return
         stuff = {}
-        with tf.gfile.Open(os.path.join(FLAGS.output_dir, 'checkpoint'), 'r') as f:
+        with tf.io.gfile.GFile(os.path.join(FLAGS.output_dir, 'checkpoint'), 'r') as f:
             # model_checkpoint_path: "model.ckpt-0"
             # all_model_checkpoint_paths: "model.ckpt-0"
             for l in f:
@@ -170,7 +170,7 @@ def main(_):
         print("EXITING BECAUSE DO_TRAIN IS FALSE AND PATH DOESNT EXIST")
         return
     else:
-        tf.gfile.MakeDirs(FLAGS.output_dir)
+        tf.io.gfile.makedirs(FLAGS.output_dir)
 
     news_config = GroverConfig.from_json_file(FLAGS.config_file)
 
@@ -178,8 +178,8 @@ def main(_):
     encoder = get_encoder()
     examples = {'train': [], 'val': [], 'test': []}
     np.random.seed(123456)
-    tf.logging.info("*** Parsing files ***")
-    with tf.gfile.Open(FLAGS.input_data, "r") as f:
+    tf.compat.v1.logging.info("*** Parsing files ***")
+    with tf.io.gfile.GFile(FLAGS.input_data, "r") as f:
         for l in f:
             item = json.loads(l)
 
@@ -195,7 +195,7 @@ def main(_):
     additional_data = {'machine': [], 'human': []}
     if FLAGS.additional_data is not None:
         print("NOW WERE LOOKING AT ADDITIONAL INPUT DATA", flush=True)
-        with tf.gfile.Open(FLAGS.additional_data, "r") as f:
+        with tf.io.gfile.GFile(FLAGS.additional_data, "r") as f:
             for l in f:
                 item = json.loads(l)
                 # This little hack is because we don't want to tokenize the article twice
@@ -206,7 +206,7 @@ def main(_):
                     'label': item['label'],
                 })
 
-    tf.logging.info("*** Done parsing files ***")
+    tf.compat.v1.logging.info("*** Done parsing files ***")
     print("LETS GO", flush=True)
     if FLAGS.max_training_examples > 0:
 
@@ -246,17 +246,17 @@ def main(_):
     # Boilerplate
     tpu_cluster_resolver = None
     if FLAGS.use_tpu and FLAGS.tpu_name:
-        tpu_cluster_resolver = tf.contrib.cluster_resolver.TPUClusterResolver(
+        tpu_cluster_resolver = tf.distribute.cluster_resolver.TPUClusterResolver(
             FLAGS.tpu_name, zone=FLAGS.tpu_zone, project=FLAGS.gcp_project)
 
-    is_per_host = tf.contrib.tpu.InputPipelineConfig.PER_HOST_V2
-    run_config = tf.contrib.tpu.RunConfig(
+    is_per_host = tf.compat.v1.estimator.tpu.InputPipelineConfig.PER_HOST_V2
+    run_config = tf.compat.v1.estimator.tpu.RunConfig(
         cluster=tpu_cluster_resolver,
         master=FLAGS.master,
         model_dir=FLAGS.output_dir,
         save_checkpoints_steps=FLAGS.iterations_per_loop,
         keep_checkpoint_max=None,
-        tpu_config=tf.contrib.tpu.TPUConfig(
+        tpu_config=tf.compat.v1.estimator.tpu.TPUConfig(
             iterations_per_loop=FLAGS.iterations_per_loop,
             num_shards=FLAGS.num_tpu_cores,
             per_host_input_for_training=is_per_host))
@@ -275,7 +275,7 @@ def main(_):
 
     # If TPU is not available, this will fall back to normal Estimator on CPU
     # or GPU.
-    estimator = tf.contrib.tpu.TPUEstimator(
+    estimator = tf.compat.v1.estimator.tpu.TPUEstimator(
         use_tpu=FLAGS.use_tpu,
         model_fn=model_fn,
         config=run_config,
@@ -288,17 +288,17 @@ def main(_):
     if FLAGS.do_train:
         train_file = os.path.join(FLAGS.output_dir, "train.tf_record")
 
-        tf.logging.info(f"***** Recreating training file at {train_file} *****")
+        tf.compat.v1.logging.info(f"***** Recreating training file at {train_file} *****")
         classification_convert_examples_to_features(examples['train'], batch_size=FLAGS.batch_size,
                                                     max_seq_length=FLAGS.max_seq_length,
                                                     encoder=encoder, output_file=train_file,
                                                     labels=LABEL_LIST,
                                                     chop_from_front_if_needed=False)
-        tf.logging.info("***** Running training *****")
-        tf.logging.info("  Num examples = %d", len(examples['train']))
-        tf.logging.info("  Num epochs = %d", FLAGS.num_train_epochs)
-        tf.logging.info("  Batch size = %d", FLAGS.batch_size)
-        tf.logging.info("  Num steps = %d", num_train_steps)
+        tf.compat.v1.logging.info("***** Running training *****")
+        tf.compat.v1.logging.info("  Num examples = %d", len(examples['train']))
+        tf.compat.v1.logging.info("  Num epochs = %d", FLAGS.num_train_epochs)
+        tf.compat.v1.logging.info("  Batch size = %d", FLAGS.batch_size)
+        tf.compat.v1.logging.info("  Num steps = %d", num_train_steps)
 
         train_input_fn = classification_input_fn_builder(input_file=train_file, seq_length=FLAGS.max_seq_length,
                                                          is_training=True, drop_remainder=True,
@@ -310,7 +310,7 @@ def main(_):
         num_actual_examples = len(examples[split])
 
         predict_file = os.path.join(FLAGS.output_dir, f'{split}.tf_record')
-        tf.logging.info(f"***** Recreating {split} file {predict_file} *****")
+        tf.compat.v1.logging.info(f"***** Recreating {split} file {predict_file} *****")
         classification_convert_examples_to_features(examples[split], batch_size=FLAGS.batch_size,
                                                     max_seq_length=FLAGS.max_seq_length,
                                                     encoder=encoder, output_file=predict_file,
@@ -336,4 +336,4 @@ def main(_):
 if __name__ == "__main__":
     flags.mark_flag_as_required("input_data")
     flags.mark_flag_as_required("output_dir")
-    tf.app.run()
+    tf.compat.v1.app.run()
