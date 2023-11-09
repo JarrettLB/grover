@@ -28,7 +28,7 @@ from lm.modeling import classification_model_fn_builder, GroverConfig
 from lm.utils import _save_np
 from sample.encoder import get_encoder
 
-flags = tf.flags
+flags = tf.compat.v1.flags
 
 FLAGS = flags.FLAGS
 
@@ -70,10 +70,10 @@ flags.DEFINE_integer("max_training_examples", -1, "if you wanna limit the number
 
 flags.DEFINE_bool("do_train", False, "Whether to run training.")
 
-flags.DEFINE_bool("predict_val", False, "Whether to run eval on the dev set.")
+flags.DEFINE_bool("predict_val", True,  "Whether to run eval on the dev set.")
 
 flags.DEFINE_bool(
-    "predict_test", False,
+    "predict_test", True,
     "Whether to run the model in inference mode on the test set.")
 
 flags.DEFINE_float("num_train_epochs", 3.0,
@@ -126,7 +126,8 @@ def _flatten_and_tokenize_metadata(encoder, item):
     metadata = []
     for key in ['domain', 'date', 'authors', 'title', 'article']:
         val = item.get(key, None)
-        if val is not None:
+        if val is not None and len(val) > 0 and type(val) == str:
+            print(val)
             metadata.append(encoder.__dict__[f'begin_{key}'])
             metadata.extend(encoder.encode(val))
             metadata.append(encoder.__dict__[f'end_{key}'])
@@ -151,6 +152,7 @@ def main(_):
                 print(f"EXITING BECAUSE {split}-probs.npy exists", flush=True)
                 return
         # Double check to see if it has trained!
+        print(os.path.join(FLAGS.output_dir, 'checkpoint'))
         if not tf.io.gfile.exists(os.path.join(FLAGS.output_dir, 'checkpoint')):
             print("EXITING BECAUSE NO CHECKPOINT.", flush=True)
             return
@@ -158,12 +160,14 @@ def main(_):
         with tf.io.gfile.GFile(os.path.join(FLAGS.output_dir, 'checkpoint'), 'r') as f:
             # model_checkpoint_path: "model.ckpt-0"
             # all_model_checkpoint_paths: "model.ckpt-0"
+            
             for l in f:
                 key, val = l.strip().split(': ', 1)
                 stuff[key] = val.strip('"')
-        if stuff['model_checkpoint_path'] == 'model.ckpt-0':
-            print("EXITING BECAUSE IT LOOKS LIKE NOTHING TRAINED", flush=True)
-            return
+                
+        ##if stuff['model_checkpoint_path'] == 'model.ckpt-0':
+        ##    print("EXITING BECAUSE IT LOOKS LIKE NOTHING TRAINED", flush=True)
+        ##    return
 
 
     elif not FLAGS.do_train:
@@ -176,7 +180,7 @@ def main(_):
 
     # TODO might have to change this
     encoder = get_encoder()
-    examples = {'train': [], 'val': [], 'test': []}
+    examples = {'train': [], 'val': [], 'test': [], 'gen':[]}
     np.random.seed(123456)
     tf.compat.v1.logging.info("*** Parsing files ***")
     with tf.io.gfile.GFile(FLAGS.input_data, "r") as f:
@@ -185,6 +189,7 @@ def main(_):
 
             # This little hack is because we don't want to tokenize the article twice
             context_ids = _flatten_and_tokenize_metadata(encoder=encoder, item=item)
+            print(item)
             examples[item['split']].append({
                 'info': item,
                 'ids': context_ids,
@@ -205,7 +210,6 @@ def main(_):
                     'ids': context_ids,
                     'label': item['label'],
                 })
-
     tf.compat.v1.logging.info("*** Done parsing files ***")
     print("LETS GO", flush=True)
     if FLAGS.max_training_examples > 0:
@@ -284,7 +288,6 @@ def main(_):
         predict_batch_size=FLAGS.batch_size,
         params={'model_dir': FLAGS.output_dir}
     )
-
     if FLAGS.do_train:
         train_file = os.path.join(FLAGS.output_dir, "train.tf_record")
 
@@ -304,8 +307,9 @@ def main(_):
                                                          is_training=True, drop_remainder=True,
                                                          )
         estimator.train(input_fn=train_input_fn, steps=num_train_steps)
-
     splits_to_predict = [x for x in ['val', 'test'] if getattr(FLAGS, f'predict_{x}')]
+    print("SPLITS~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
+    print(splits_to_predict)
     for split in splits_to_predict:
         num_actual_examples = len(examples[split])
 
