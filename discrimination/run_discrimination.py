@@ -308,8 +308,6 @@ def main(_):
                                                          )
         estimator.train(input_fn=train_input_fn, steps=num_train_steps)
     splits_to_predict = [x for x in ['val', 'test'] if getattr(FLAGS, f'predict_{x}')]
-    print("SPLITS~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
-    print(splits_to_predict)
     for split in splits_to_predict:
         num_actual_examples = len(examples[split])
 
