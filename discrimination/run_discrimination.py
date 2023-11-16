@@ -351,6 +351,33 @@ def main(_):
         estimator.train(input_fn=train_input_fn, steps=num_train_steps)
     splits_to_predict = [x for x in ['val', 'test'] if getattr(FLAGS, f'predict_{x}')]
 
+    for split in splits_to_predict:
+        num_actual_examples = len(examples[split])
+
+        predict_file = os.path.join(FLAGS.output_dir, f'{split}.tf_record')
+        tf.compat.v1.logging.info(f"***** Recreating {split} file {predict_file} *****")
+        classification_convert_examples_to_features(examples[split], batch_size=FLAGS.batch_size,
+                                                    max_seq_length=FLAGS.max_seq_length,
+                                                    encoder=encoder, output_file=predict_file,
+                                                    labels=LABEL_LIST, pad_extra_examples=True,
+                                                    chop_from_front_if_needed=False)
+
+        val_input_fn = classification_input_fn_builder(input_file=predict_file, seq_length=FLAGS.max_seq_length,
+                                                       is_training=False, drop_remainder=True,
+                                                       )
+
+        probs = np.zeros((num_actual_examples, 2), dtype=np.float32)
+        for i, res in enumerate(estimator.predict(input_fn=val_input_fn, yield_single_examples=True)):
+            if i < num_actual_examples:
+                probs[i] = res['probs']
+
+        _save_np(os.path.join(FLAGS.output_dir, f'{split}-probs.npy'), probs)
+
+        preds = np.argmax(probs, 1)
+        labels = np.array([LABEL_INV_MAP[x['label']] for x in examples[split][:num_actual_examples]])
+        print('{} ACCURACY IS {:.3f}'.format(split, np.mean(labels == preds)), flush=True)
+
+
     total = 0.0
 
     for i in range(10):

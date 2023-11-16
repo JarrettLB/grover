@@ -1,8 +1,8 @@
-pandas==0.24.2
-regex==2019.4.14
-h5py==2.9.0
-numpy==1.16.2
-tensorboard==1.13.1
-tensorflow-gpu==1.13.1
-tqdm==4.31.1
-requests==2.22.0
+pandas==2.1.2
+regex==2023.10.3
+h5py==3.10.0
+numpy==1.26.1
+tensorboard==2.14.1
+tensorflow[and-cuda]==2.14.0
+tqdm==4.66.1
+requests==2.31.0
